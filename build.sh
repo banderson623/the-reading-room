@@ -46,7 +46,7 @@ ICONSET="$BUILD_DIR/AppIcon.iconset"
 rm -rf "$ICONSET"; mkdir -p "$ICONSET"
 # Prefer the supplied artwork (largest master available); fall back to the
 # procedural icon if the art folder is missing.
-ICON_MASTER="reading-room-icons/reading-room-512.png"
+ICON_MASTER="reading-room-icons/reading-room-1024.png"
 if [ -f "$ICON_MASTER" ]; then
   echo "    from $ICON_MASTER"
   # Rasterize every size an .iconset needs from the one master.

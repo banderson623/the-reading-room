@@ -60,6 +60,9 @@ private struct AboutView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 128, height: 128)
+                // The icon master is a full-bleed square (macOS rounds it in the
+                // Dock); round it here too so the About box matches.
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .accessibilityHidden(true)
 
             Text("The Reading Room")

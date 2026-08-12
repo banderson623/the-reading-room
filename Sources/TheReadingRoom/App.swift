@@ -79,6 +79,10 @@ private struct ViewerCommands: Commands {
     @FocusedObject private var model: AppModel?
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About The Reading Room") { AboutWindow.show() }
+        }
+
         // Left after .newItem so SwiftUI keeps its own "New Window" item.
         CommandGroup(after: .newItem) {
             Button("Open…") { model?.presentOpenPanel() }

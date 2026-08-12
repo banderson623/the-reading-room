@@ -43,7 +43,22 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 echo "==> Icon"
 ICONSET="$BUILD_DIR/AppIcon.iconset"
-swift Tools/make-icon.swift "$ICONSET" > /dev/null
+rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+# Prefer the supplied artwork (largest master available); fall back to the
+# procedural icon if the art folder is missing.
+ICON_MASTER="reading-room-icons/reading-room-512.png"
+if [ -f "$ICON_MASTER" ]; then
+  echo "    from $ICON_MASTER"
+  # Rasterize every size an .iconset needs from the one master.
+  for sz in 16 32 128 256 512; do
+    sips -z "$sz" "$sz" "$ICON_MASTER" --out "$ICONSET/icon_${sz}x${sz}.png" >/dev/null
+    d=$((sz * 2))
+    sips -z "$d" "$d" "$ICON_MASTER" --out "$ICONSET/icon_${sz}x${sz}@2x.png" >/dev/null
+  done
+else
+  echo "    no artwork found — generating procedural icon"
+  swift Tools/make-icon.swift "$ICONSET" > /dev/null
+fi
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 

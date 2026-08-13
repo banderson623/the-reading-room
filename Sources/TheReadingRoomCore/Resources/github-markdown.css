@@ -328,6 +328,17 @@ img[src$=".svg"] { background: transparent; }
   font-size: 13px;
 }
 
+/* ---------- print ---------- */
+
+@media print {
+  /* The tall reading tail below the last line would print as blank pages. */
+  .page { padding-bottom: 0; }
+  /* On paper there is no scrolling — wrap long code lines instead of clipping. */
+  pre, pre code { white-space: pre-wrap; word-break: break-word; }
+  .copy-button, .anchor { display: none; }
+  pre, blockquote, table, img { break-inside: avoid; }
+}
+
 /* ---------- highlight.js (GitHub theme) ---------- */
 
 .hljs-comment,

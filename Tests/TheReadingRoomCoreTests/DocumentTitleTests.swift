@@ -116,7 +116,31 @@ struct DateFormattingTests {
         calendar.timeZone = zone
         let date = calendar.date(from: components)!
 
-        #expect(DateFormatting.friendly(date, timeZone: zone) == "8/11/2026 @ 5:34 PM")
+        // ICU puts a narrow no-break space before AM/PM.
+        #expect(
+            DateFormatting.friendly(date, timeZone: zone, locale: Locale(identifier: "en_US"))
+                == "8/11/2026 @ 5:34\u{202F}PM"
+        )
+    }
+
+    @Test("The date follows the reader's locale")
+    func localized() {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 8
+        components.day = 11
+        components.hour = 17
+        components.minute = 34
+
+        var calendar = Calendar(identifier: .gregorian)
+        let zone = TimeZone(identifier: "America/Denver")!
+        calendar.timeZone = zone
+        let date = calendar.date(from: components)!
+
+        // Day-first date and a 24-hour clock, as a British reader expects.
+        let british = DateFormatting.friendly(date, timeZone: zone, locale: Locale(identifier: "en_GB"))
+        #expect(british.contains("11/08/2026"))
+        #expect(british.contains("17:34"))
     }
 
     @Test("Morning times and single-digit dates read correctly")
@@ -133,7 +157,10 @@ struct DateFormattingTests {
         calendar.timeZone = zone
         let date = calendar.date(from: components)!
 
-        #expect(DateFormatting.friendly(date, timeZone: zone) == "1/5/2026 @ 9:05 AM")
+        #expect(
+            DateFormatting.friendly(date, timeZone: zone, locale: Locale(identifier: "en_US"))
+                == "1/5/2026 @ 9:05\u{202F}AM"
+        )
     }
 
     @Test("The rendered page shows the last-modified line")

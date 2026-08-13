@@ -24,7 +24,17 @@ final class AppModel: ObservableObject {
 
     /// Full-text search state. `searchText` is the query; results are files whose
     /// *contents* matched.
-    @Published private(set) var searchResults: [SearchHit] = []
+    @Published private(set) var searchResults: [SearchHit] = [] {
+        // Every visible row asks for its count and snippet on every render;
+        // answering from a dictionary keeps that O(1) instead of a scan.
+        didSet {
+            searchHitsByURL = Dictionary(
+                searchResults.map { ($0.url, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+        }
+    }
+    private var searchHitsByURL: [URL: SearchHit] = [:]
     @Published private(set) var isSearching = false
 
     /// Queries shorter than this match too much to be useful.
@@ -86,11 +96,11 @@ final class AppModel: ObservableObject {
     }
 
     func matchCount(for url: URL) -> Int? {
-        searchResults.first { $0.url == url }?.matchCount
+        searchHitsByURL[url]?.matchCount
     }
 
     func snippet(for url: URL) -> String? {
-        searchResults.first { $0.url == url }?.snippet
+        searchHitsByURL[url]?.snippet
     }
 
     /// What to call the open file in the window title — its document title when

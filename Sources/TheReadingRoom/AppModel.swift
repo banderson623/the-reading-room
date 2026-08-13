@@ -38,6 +38,9 @@ final class AppModel: ObservableObject {
     /// Files whose name or title matched the query — shown alongside content
     /// hits, so "setup" finds setup.md even when the word isn't inside it.
     @Published private(set) var nameMatches: Set<URL> = []
+
+    /// The open document's headings, for the outline menu in the toolbar.
+    @Published private(set) var outline: [OutlineItem] = []
     @Published private(set) var isSearching = false
 
     /// Queries shorter than this match too much to be useful.
@@ -234,6 +237,7 @@ final class AppModel: ObservableObject {
                     self.select(first.url)
                 } else {
                     self.selection = nil
+                    self.outline = []
                 }
             }
         }
@@ -248,6 +252,7 @@ final class AppModel: ObservableObject {
         root = nil
         tree = []
         selection = nil
+        outline = []
         searchText = ""
         UserDefaults.standard.removeObject(forKey: lastFolderKey)
         // Deliberately emptying a window should stick, so this save is allowed
@@ -363,6 +368,7 @@ final class AppModel: ObservableObject {
         // Opening a search result jumps to the first match in the page.
         webViewController.pendingFind = isSearchActive ? searchText : nil
         webViewController.show(path: url.path)
+        refreshOutline()
     }
 
     /// Called when the page itself navigated (a markdown link was followed).
@@ -372,6 +378,24 @@ final class AppModel: ObservableObject {
         selection = url
         if let ancestors = FileTree.ancestors(of: url, in: tree) {
             expanded.formUnion(ancestors)
+        }
+        refreshOutline()
+    }
+
+    /// Re-reads the selected document's headings for the outline menu.
+    private func refreshOutline() {
+        guard let selection else {
+            outline = []
+            return
+        }
+        let url = selection
+        Task.detached(priority: .utility) {
+            let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+            let items = DocumentOutline.headings(inMarkdown: text)
+            await MainActor.run { [weak self] in
+                guard let self, self.selection == url else { return }
+                self.outline = items
+            }
         }
     }
 
@@ -393,9 +417,11 @@ final class AppModel: ObservableObject {
         // Anything that changed is stale in the search cache.
         for path in paths { ContentSearch.shared.invalidate(path: path) }
 
-        // The open document changed on disk — re-render it where the reader is.
+        // The open document changed on disk — re-render it where the reader is,
+        // and refresh its outline, since the headings may have changed too.
         if let selection, FileTree.changeAffects(path: selection.path, changedPaths: paths) {
             webViewController.reload()
+            refreshOutline()
         }
 
         guard FileTree.changesAffectTree(paths) else { return }

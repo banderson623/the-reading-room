@@ -114,6 +114,14 @@ struct ContentView: View {
         ToolbarItemGroup {
             Spacer()
 
+            Menu {
+                OutlineMenuItems(model: model)
+            } label: {
+                Image(systemName: "list.bullet")
+            }
+            .disabled(model.outline.isEmpty)
+            .help("Document Outline")
+
             Button {
                 model.findBarVisible = true
             } label: {
@@ -139,6 +147,26 @@ struct ContentView: View {
                 Image(systemName: "ellipsis.circle")
             }
             .disabled(model.selection == nil)
+        }
+    }
+}
+
+// MARK: - Outline
+
+/// The document's headings as menu items, indented by level. Menus have no
+/// real indentation, so nesting is drawn with leading spaces relative to the
+/// shallowest heading in the document.
+private struct OutlineMenuItems: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        let minLevel = model.outline.map(\.level).min() ?? 1
+        ForEach(model.outline) { item in
+            Button {
+                model.webViewController.scrollTo(anchor: item.slug)
+            } label: {
+                Text(String(repeating: "    ", count: item.level - minLevel) + item.text)
+            }
         }
     }
 }

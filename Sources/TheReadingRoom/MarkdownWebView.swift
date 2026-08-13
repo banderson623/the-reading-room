@@ -65,6 +65,14 @@ final class WebViewController: ObservableObject {
     func goBack() { webView?.goBack() }
     func goForward() { webView?.goForward() }
 
+    /// Jumps to a heading by its anchor — used by the outline menu. Slugs only
+    /// ever contain letters, numbers, "-" and "_" (see `Slugger`), so they can
+    /// be embedded in the script directly.
+    func scrollTo(anchor slug: String) {
+        let script = "document.getElementById('\(slug)')?.scrollIntoView()"
+        webView?.evaluateJavaScript(script)
+    }
+
     func zoomIn() { apply(ZoomLadder.next(above: zoom)) }
     func zoomOut() { apply(ZoomLadder.next(below: zoom)) }
 

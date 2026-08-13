@@ -72,7 +72,26 @@
   addCopyButtons();
 
   if (window.__restoreScroll) {
-    window.scrollTo(0, window.__restoreScroll);
+    // Images loading above the viewport shift the layout after the first
+    // scroll, so keep re-asserting the offset until the page settles — or the
+    // reader scrolls on their own, whichever comes first.
+    var restore = window.__restoreScroll;
+    var holding = true;
+    var release = function () {
+      holding = false;
+    };
+    ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (type) {
+      window.addEventListener(type, release, { passive: true, once: true });
+    });
+    var assertScroll = function () {
+      if (holding) window.scrollTo(0, restore);
+    };
+    assertScroll();
+    document.querySelectorAll("img").forEach(function (img) {
+      if (!img.complete) img.addEventListener("load", assertScroll, { once: true });
+    });
+    window.addEventListener("load", assertScroll, { once: true });
+    setTimeout(release, 2000);
   } else if (location.hash) {
     var target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
     if (target) target.scrollIntoView();

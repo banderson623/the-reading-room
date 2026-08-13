@@ -369,6 +369,8 @@ final class AppModel: ObservableObject {
         webViewController.pendingFind = isSearchActive ? searchText : nil
         webViewController.show(path: url.path)
         refreshOutline()
+        // Keep the on-disk session close to what's on screen, crash included.
+        WindowRouter.shared.scheduleSave()
     }
 
     /// Called when the page itself navigated (a markdown link was followed).

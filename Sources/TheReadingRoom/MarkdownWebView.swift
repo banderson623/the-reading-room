@@ -265,6 +265,9 @@ struct MarkdownWebView: NSViewRepresentable {
                 guard let offset = payload["y"] as? Double,
                       let path = parent.controller.loadedPath else { return }
                 ScrollStore.shared.record(path: path, offset: offset)
+                // The reading position is part of the session; keep the saved
+                // copy fresh so a crash doesn't lose it.
+                WindowRouter.shared.scheduleSave()
             case "copy":
                 guard let text = payload["text"] as? String else { return }
                 NSPasteboard.general.clearContents()

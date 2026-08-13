@@ -82,6 +82,19 @@ struct ContentSearchTests {
         #expect(hit.snippet.hasSuffix("…"))
     }
 
+    @Test("A long indented line still shows the match in its snippet")
+    func indentedLongLineSnippet() throws {
+        let filler = String(repeating: "padding ", count: 60)
+        let indent = String(repeating: " ", count: 120)
+        let folder = try TestFolder(["indented.md": indent + "NEEDLE " + filler])
+        defer { folder.remove() }
+
+        let hit = try #require(
+            ContentSearch().search(query: "needle", in: [folder.url("indented.md")]).first
+        )
+        #expect(hit.snippet.contains("NEEDLE"))
+    }
+
     @Test("An empty query matches nothing")
     func emptyQuery() throws {
         let folder = try Self.makeFolder()

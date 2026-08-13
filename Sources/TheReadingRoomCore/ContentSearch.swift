@@ -123,11 +123,16 @@ public final class ContentSearch: @unchecked Sendable {
             lineEnd = text.index(after: lineEnd)
         }
 
-        let line = text[lineStart..<lineEnd].trimmingCharacters(in: .whitespaces)
+        let rawLine = text[lineStart..<lineEnd]
+        let line = rawLine.trimmingCharacters(in: .whitespaces)
         guard line.count > snippetWidth else { return line }
 
-        // Keep the match in view by windowing around it.
-        let matchOffset = text.distance(from: lineStart, to: range.lowerBound)
+        // Keep the match in view by windowing around it. The offset is measured
+        // from the raw line start, so subtract the indentation the trim removed
+        // — otherwise the window drifts right on indented lines and can lose
+        // the match entirely.
+        let indent = rawLine.prefix(while: \.isWhitespace).count
+        let matchOffset = max(0, text.distance(from: lineStart, to: range.lowerBound) - indent)
         let leading = max(0, matchOffset - snippetWidth / 3)
         let start = line.index(line.startIndex, offsetBy: min(leading, line.count))
         let end = line.index(start, offsetBy: min(snippetWidth, line.distance(from: start, to: line.endIndex)))

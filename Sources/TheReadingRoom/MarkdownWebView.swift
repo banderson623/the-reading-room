@@ -84,16 +84,28 @@ final class WebViewController: ObservableObject {
         webView.pageZoom = zoom
     }
 
+    /// True after a find came up empty — the find bar says so, since a search
+    /// that silently does nothing looks broken.
+    @Published private(set) var findFoundNothing = false
+
     func find(_ text: String, backwards: Bool = false) {
         guard !text.isEmpty else { return }
         let configuration = WKFindConfiguration()
         configuration.backwards = backwards
         configuration.wraps = true
         configuration.caseSensitive = false
-        webView?.find(text, configuration: configuration, completionHandler: { _ in })
+        webView?.find(text, configuration: configuration) { [weak self] result in
+            self?.findFoundNothing = !result.matchFound
+        }
+    }
+
+    /// Clears the "not found" notice — called when the query is edited.
+    func resetFindFeedback() {
+        findFoundNothing = false
     }
 
     func clearFind() {
+        findFoundNothing = false
         // Dismisses the highlight by searching for nothing findable.
         webView?.evaluateJavaScript("window.getSelection().removeAllRanges()")
     }

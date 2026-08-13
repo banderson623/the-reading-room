@@ -70,6 +70,7 @@ struct ContentView: View {
                 if model.findBarVisible {
                     FindBar(
                         text: $model.findText,
+                        notFound: model.webViewController.findFoundNothing,
                         onFind: { backwards in
                             model.webViewController.find(model.findText, backwards: backwards)
                         },
@@ -80,6 +81,9 @@ struct ContentView: View {
                     )
                     .padding(12)
                     .transition(.move(edge: .top).combined(with: .opacity))
+                    .onChange(of: model.findText) {
+                        model.webViewController.resetFindFeedback()
+                    }
                 }
             }
         }
@@ -192,6 +196,8 @@ struct WelcomeView: View {
 
 struct FindBar: View {
     @Binding var text: String
+    /// The last find came up empty; say so instead of silently doing nothing.
+    var notFound = false
     var onFind: (Bool) -> Void
     var onClose: () -> Void
 
@@ -208,6 +214,12 @@ struct FindBar: View {
                 .frame(width: 170)
                 .focused($focused)
                 .onSubmit { onFind(false) }
+
+            if notFound, !text.isEmpty {
+                Text("Not found")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Divider().frame(height: 14)
 

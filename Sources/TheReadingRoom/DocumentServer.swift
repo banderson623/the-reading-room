@@ -9,6 +9,15 @@ final class DocumentServer: NSObject, WKURLSchemeHandler {
     private var cancelled: Set<ObjectIdentifier> = []
     private let cancelLock = NSLock()
 
+    /// Folders assets may be served from — the opened root and the current
+    /// document's folder (see `AssetAccessPolicy`). Asked per request, on the
+    /// main thread, since the answer changes as the reader moves around.
+    private let assetRoots: @MainActor () -> [URL]
+
+    init(assetRoots: @escaping @MainActor () -> [URL] = { [] }) {
+        self.assetRoots = assetRoots
+    }
+
     /// Files larger than this are shown as a notice instead of rendered; keeps a
     /// stray multi-megabyte log file from freezing the window.
     private let maxDocumentBytes = 8 * 1024 * 1024
@@ -33,9 +42,12 @@ final class DocumentServer: NSObject, WKURLSchemeHandler {
             return
         }
 
+        // Scheme handler callbacks arrive on the main thread; capture the
+        // allowed roots here rather than from the render queue.
+        let roots = MainActor.assumeIsolated { assetRoots() }
         queue.async { [weak self] in
             guard let self else { return }
-            let (data, mimeType) = self.body(forPath: path)
+            let (data, mimeType) = self.body(forPath: path, assetRoots: roots)
             DispatchQueue.main.async {
                 self.finish(task, identifier: identifier, url: url, data: data, mimeType: mimeType, cache: false)
             }
@@ -50,7 +62,7 @@ final class DocumentServer: NSObject, WKURLSchemeHandler {
 
     // MARK: - Content
 
-    private func body(forPath path: String) -> (Data, String) {
+    private func body(forPath path: String, assetRoots: [URL]) -> (Data, String) {
         let fileURL = URL(fileURLWithPath: path)
         let attributes = try? FileManager.default.attributesOfItem(atPath: path)
 
@@ -63,7 +75,12 @@ final class DocumentServer: NSObject, WKURLSchemeHandler {
         }
 
         guard FileTree.isMarkdown(fileURL) else {
-            // Images and other assets referenced by the document.
+            // Images and other assets referenced by the document — but only
+            // from folders the reader opened; a document doesn't get to pull
+            // arbitrary paths off the disk into its page.
+            guard AssetAccessPolicy.allows(path: path, withinAny: assetRoots) else {
+                return (Data(), "application/octet-stream")
+            }
             let mimeType = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType
                 ?? "application/octet-stream"
             let data = (try? Data(contentsOf: fileURL, options: .mappedIfSafe)) ?? Data()

@@ -211,6 +211,7 @@ final class AppModel: ObservableObject {
     func open(folder url: URL, select fileToSelect: URL? = nil) {
         let folder = url.canonicalFileURL
         root = folder
+        webViewController.documentRoot = folder
         searchText = ""
         expanded = []
         isScanning = true
@@ -250,6 +251,7 @@ final class AppModel: ObservableObject {
     func closeFolder() {
         watcher = nil
         root = nil
+        webViewController.documentRoot = nil
         tree = []
         selection = nil
         outline = []

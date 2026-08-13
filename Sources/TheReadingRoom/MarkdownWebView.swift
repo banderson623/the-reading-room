@@ -16,6 +16,10 @@ final class WebViewController: ObservableObject {
     /// search result, so the view lands on the match.
     var pendingFind: String?
 
+    /// The folder open in this window — the boundary asset requests are
+    /// checked against (see `AssetAccessPolicy`).
+    var documentRoot: URL?
+
     fileprivate weak var webView: WKWebView?
     /// Selection changes come from the sidebar; link clicks come from the page.
     /// This distinguishes them so we don't fight over navigation.
@@ -144,7 +148,18 @@ struct MarkdownWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.setURLSchemeHandler(DocumentServer(), forURLScheme: Scheme.name)
+        let controller = self.controller
+        let server = DocumentServer(assetRoots: { [weak controller] in
+            var roots: [URL] = []
+            if let root = controller?.documentRoot { roots.append(root) }
+            // The document itself may sit outside the root after a ../ link;
+            // its own folder is fair game for its images.
+            if let path = controller?.loadedPath {
+                roots.append(URL(fileURLWithPath: path).deletingLastPathComponent())
+            }
+            return roots
+        })
+        configuration.setURLSchemeHandler(server, forURLScheme: Scheme.name)
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.userContentController.add(context.coordinator, name: "app")
         configuration.suppressesIncrementalRendering = false

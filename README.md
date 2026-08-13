@@ -54,7 +54,8 @@ build falls back to ad-hoc and everything except notifications still works.
 | Open a folder | drag it onto the window or the Dock icon, or ⌘O — it opens in a new window, leaving what you were reading alone. A folder already open just comes to the front; you never get two windows on one directory |
 | New window | ⌘N — starts empty, with its own folder, selection, and history |
 | Pick up where you left off | quitting remembers every open window; relaunching reopens them on the same files, scrolled to the same place |
-| Search file *contents* | type in the sidebar field (⇧⌘F), matches shown with a preview line |
+| Search file *contents* | type in the sidebar field (⇧⌘F), matches shown with a preview line. Files whose *name* or title match appear too |
+| Jump to a heading | the outline button in the toolbar lists the document's headings |
 | Sort the sidebar | the control beside the search field, or View ▸ Sort Files By |
 | Follow a markdown link | click it — it opens in place, with ⌘[ / ⌘] for back and forward |
 | Open a web link | click it — it goes to your default browser |
@@ -79,7 +80,8 @@ strikethrough, autolinks, footnote-style link references, raw HTML, and
 `> [!NOTE]`-style alerts. Strikethrough needs `~~two tildes~~` — cmark-gfm also
 pairs single ones, which turns prose like "~$230/mo … (~$200)" into one long
 struck-out run. Code blocks are syntax highlighted. Headings get
-anchors, so `#section` links work. YAML front matter is treated as metadata and
+anchors, so `#section` links work. Links that leave the app for your browser
+are marked with a small ↗. YAML front matter is treated as metadata and
 not rendered. Light and dark follow the system appearance.
 
 Each document shows its last-modified date above the content.

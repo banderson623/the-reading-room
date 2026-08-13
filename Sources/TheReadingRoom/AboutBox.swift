@@ -27,11 +27,14 @@ enum AboutWindow {
         window.setContentSize(hosting.view.fittingSize)
         window.center()
 
-        // Build a fresh window next time this one is closed.
-        NotificationCenter.default.addObserver(
+        // Build a fresh window next time this one is closed. The observation is
+        // one-shot: remove it as it fires, or every open leaks an observer.
+        var token: NSObjectProtocol?
+        token = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: window, queue: .main
         ) { _ in
             MainActor.assumeIsolated { controller = nil }
+            if let token { NotificationCenter.default.removeObserver(token) }
         }
 
         controller = NSWindowController(window: window)

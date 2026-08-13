@@ -13,6 +13,15 @@ struct MarkdownRendererTests {
         #expect(html.contains("<a class=\"anchor\" href=\"#hello-world\""))
     }
 
+    @Test("Slugs keep consecutive hyphens, exactly as GitHub does")
+    func gitHubCompatibleSlugs() {
+        // GitHub slugs "a - b" to "a---b" (spaces become hyphens, the literal
+        // hyphen stays); a link written against GitHub must resolve here.
+        let html = MarkdownRenderer.render(markdown: "# a - b\n\n## C++ API")
+        #expect(html.contains("<h1 id=\"a---b\">"))
+        #expect(html.contains("<h2 id=\"c-api\">"))
+    }
+
     @Test("Front matter is metadata, not content")
     func frontMatter() {
         let markdown = "---\ntitle: Secret\n---\n\n# Body\n"

@@ -360,10 +360,9 @@ struct Slugger {
             return character == " " ? "-" : " "
         })
         base = base.replacingOccurrences(of: " ", with: "")
-        while base.contains("--") {
-            base = base.replacingOccurrences(of: "--", with: "-")
-        }
-        base = base.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        // No collapsing or trimming of hyphens: GitHub keeps them ("a - b"
+        // slugs to "a---b"), and anchors written against GitHub's slugger
+        // should resolve here too.
         if base.isEmpty { base = "section" }
 
         let count = usedSlugs[base, default: 0]

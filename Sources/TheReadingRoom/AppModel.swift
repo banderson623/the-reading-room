@@ -35,6 +35,9 @@ final class AppModel: ObservableObject {
         }
     }
     private var searchHitsByURL: [URL: SearchHit] = [:]
+    /// Files whose name or title matched the query — shown alongside content
+    /// hits, so "setup" finds setup.md even when the word isn't inside it.
+    @Published private(set) var nameMatches: Set<URL> = []
     @Published private(set) var isSearching = false
 
     /// Queries shorter than this match too much to be useful.
@@ -90,9 +93,15 @@ final class AppModel: ObservableObject {
     /// in the chosen order.
     var visibleTree: [FileNode] {
         let nodes = isSearchActive
-            ? FileTree.restrict(tree, to: Set(searchResults.map(\.url)))
+            ? FileTree.restrict(tree, to: Set(searchResults.map(\.url)).union(nameMatches))
             : tree
         return FileTree.sort(nodes, by: sortOrder)
+    }
+
+    /// Files that matched only by name — the result summary counts them apart,
+    /// since they have no match count or snippet.
+    var nameOnlyMatchCount: Int {
+        nameMatches.count { searchHitsByURL[$0] == nil }
     }
 
     func matchCount(for url: URL) -> Int? {
@@ -274,9 +283,14 @@ final class AppModel: ObservableObject {
 
         guard query.count >= Self.minimumQueryLength else {
             searchResults = []
+            nameMatches = []
             isSearching = false
             return
         }
+
+        // Name matching is a walk of the in-memory tree; do it right away
+        // rather than alongside the content search.
+        nameMatches = FileTree.matchingNames(query, in: tree)
 
         let files = FileTree.allFiles(tree)
         isSearching = true
@@ -298,6 +312,7 @@ final class AppModel: ObservableObject {
     func clearSearch() {
         searchText = ""
         searchResults = []
+        nameMatches = []
         isSearching = false
         searchTask?.cancel()
     }

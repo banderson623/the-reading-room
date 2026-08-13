@@ -231,6 +231,25 @@ public enum FileTree {
         return urls
     }
 
+    /// Files whose filename or shown label contains `query` — so a search can
+    /// find a document by what the sidebar calls it, not only by its contents.
+    public static func matchingNames(_ query: String, in nodes: [FileNode]) -> Set<URL> {
+        let needle = query.trimmingCharacters(in: .whitespaces)
+        guard !needle.isEmpty else { return [] }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+
+        var result: Set<URL> = []
+        for node in nodes {
+            if node.isDirectory {
+                result.formUnion(matchingNames(needle, in: node.children ?? []))
+            } else if node.name.range(of: needle, options: options) != nil
+                || node.label.range(of: needle, options: options) != nil {
+                result.insert(node.url)
+            }
+        }
+        return result
+    }
+
     /// Narrow the tree to `keep`, retaining the directories that lead to them.
     public static func restrict(_ nodes: [FileNode], to keep: Set<URL>) -> [FileNode] {
         var result: [FileNode] = []

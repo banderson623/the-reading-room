@@ -60,8 +60,17 @@ struct Sidebar: View {
         if model.isSearching { return "Searching…" }
         let files = model.searchResults.count
         let matches = model.searchResults.reduce(0) { $0 + $1.matchCount }
-        if files == 0 { return "No matches" }
-        return "\(matches) match\(matches == 1 ? "" : "es") in \(files) file\(files == 1 ? "" : "s")"
+        let names = model.nameOnlyMatchCount
+        if files == 0 && names == 0 { return "No matches" }
+
+        var parts: [String] = []
+        if files > 0 {
+            parts.append("\(matches) match\(matches == 1 ? "" : "es") in \(files) file\(files == 1 ? "" : "s")")
+        }
+        if names > 0 {
+            parts.append("\(names) matching name\(names == 1 ? "" : "s")")
+        }
+        return parts.joined(separator: " · ")
     }
 
     @ViewBuilder

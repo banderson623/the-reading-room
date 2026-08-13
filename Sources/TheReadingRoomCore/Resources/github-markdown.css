@@ -160,6 +160,22 @@ p, blockquote, ul, ol, dl, table, pre, details {
 a { color: var(--accent-fg); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* Links that leave the app for the browser get a small departure mark.
+   (The renderer tags them with data-external.) \FE0E keeps the arrow as
+   text rather than an emoji. */
+a[data-external]::after {
+  content: "\2197\FE0E";
+  margin-left: .1em;
+  font-size: .72em;
+  vertical-align: .18em;
+  color: var(--fg-subtle);
+  text-decoration: none;
+}
+a[data-external]:hover::after { color: var(--accent-fg); }
+
+/* <details> reads as clickable, like GitHub renders it. */
+summary { cursor: pointer; }
+
 strong { font-weight: 600; }
 
 hr {

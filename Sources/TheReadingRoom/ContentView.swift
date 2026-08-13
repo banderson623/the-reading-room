@@ -146,7 +146,9 @@ struct WelcomeView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: "text.document")
+            // "doc.text", not "text.document": the latter needs SF Symbols 6
+            // (macOS 15) and renders as nothing on macOS 14.
+            Image(systemName: "doc.text")
                 .font(.system(size: 52, weight: .thin))
                 .foregroundStyle(.tertiary)
 

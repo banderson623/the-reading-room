@@ -116,6 +116,24 @@ struct FileTreeTests {
         #expect(FileTree.contains(root.appendingPathComponent("README.md"), in: tree))
     }
 
+    @Test("Files can be found by name or title, anywhere in the tree")
+    func nameMatching() throws {
+        let folder = try Self.makeFixture()
+        defer { folder.remove() }
+        let root = folder.root
+        let tree = FileTree.scan(root)
+
+        // By filename, case-insensitively, nested included.
+        #expect(FileTree.matchingNames("SETUP", in: tree)
+            == [root.appendingPathComponent("guides/setup.md")])
+        // By the label the sidebar shows (README's title is "Read me").
+        #expect(FileTree.matchingNames("read me", in: tree)
+            == [root.appendingPathComponent("README.md")])
+        // Directories themselves never match; a miss is empty, not nil.
+        #expect(FileTree.matchingNames("guides", in: tree).isEmpty)
+        #expect(FileTree.matchingNames("   ", in: tree).isEmpty)
+    }
+
     @Test("Markdown is recognized by extension, case-insensitively")
     func markdownDetection() {
         #expect(FileTree.isMarkdown(URL(fileURLWithPath: "/a/b.MD")))

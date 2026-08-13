@@ -70,6 +70,7 @@ struct ContentView: View {
                 if model.findBarVisible {
                     FindBar(
                         text: $model.findText,
+                        notFound: model.webViewController.findFoundNothing,
                         onFind: { backwards in
                             model.webViewController.find(model.findText, backwards: backwards)
                         },
@@ -80,6 +81,9 @@ struct ContentView: View {
                     )
                     .padding(12)
                     .transition(.move(edge: .top).combined(with: .opacity))
+                    .onChange(of: model.findText) {
+                        model.webViewController.resetFindFeedback()
+                    }
                 }
             }
         }
@@ -110,6 +114,14 @@ struct ContentView: View {
         ToolbarItemGroup {
             Spacer()
 
+            Menu {
+                OutlineMenuItems(model: model)
+            } label: {
+                Image(systemName: "list.bullet")
+            }
+            .disabled(model.outline.isEmpty)
+            .help("Document Outline")
+
             Button {
                 model.findBarVisible = true
             } label: {
@@ -139,6 +151,26 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Outline
+
+/// The document's headings as menu items, indented by level. Menus have no
+/// real indentation, so nesting is drawn with leading spaces relative to the
+/// shallowest heading in the document.
+private struct OutlineMenuItems: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        let minLevel = model.outline.map(\.level).min() ?? 1
+        ForEach(model.outline) { item in
+            Button {
+                model.webViewController.scrollTo(anchor: item.slug)
+            } label: {
+                Text(String(repeating: "    ", count: item.level - minLevel) + item.text)
+            }
+        }
+    }
+}
+
 // MARK: - Welcome
 
 struct WelcomeView: View {
@@ -146,7 +178,9 @@ struct WelcomeView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: "text.document")
+            // "doc.text", not "text.document": the latter needs SF Symbols 6
+            // (macOS 15) and renders as nothing on macOS 14.
+            Image(systemName: "doc.text")
                 .font(.system(size: 52, weight: .thin))
                 .foregroundStyle(.tertiary)
 
@@ -190,6 +224,8 @@ struct WelcomeView: View {
 
 struct FindBar: View {
     @Binding var text: String
+    /// The last find came up empty; say so instead of silently doing nothing.
+    var notFound = false
     var onFind: (Bool) -> Void
     var onClose: () -> Void
 
@@ -206,6 +242,12 @@ struct FindBar: View {
                 .frame(width: 170)
                 .focused($focused)
                 .onSubmit { onFind(false) }
+
+            if notFound, !text.isEmpty {
+                Text("Not found")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Divider().frame(height: 14)
 

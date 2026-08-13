@@ -197,6 +197,20 @@ final class WindowRouter: ObservableObject {
         UserDefaults.standard.removeObject(forKey: sessionKey)
     }
 
+    private var pendingSave: DispatchWorkItem?
+
+    /// Saves soon, coalescing bursts — called as reading state changes (a file
+    /// opened, a page scrolled), so a crash loses seconds of state rather than
+    /// everything since the app last lost focus.
+    func scheduleSave(after delay: TimeInterval = 2) {
+        pendingSave?.cancel()
+        let work = DispatchWorkItem {
+            MainActor.assumeIsolated { WindowRouter.shared.saveSession() }
+        }
+        pendingSave = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
     // MARK: - Live windows
 
     func register(_ id: UUID, model: AppModel) {

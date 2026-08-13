@@ -24,7 +24,23 @@ final class AppModel: ObservableObject {
 
     /// Full-text search state. `searchText` is the query; results are files whose
     /// *contents* matched.
-    @Published private(set) var searchResults: [SearchHit] = []
+    @Published private(set) var searchResults: [SearchHit] = [] {
+        // Every visible row asks for its count and snippet on every render;
+        // answering from a dictionary keeps that O(1) instead of a scan.
+        didSet {
+            searchHitsByURL = Dictionary(
+                searchResults.map { ($0.url, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+        }
+    }
+    private var searchHitsByURL: [URL: SearchHit] = [:]
+    /// Files whose name or title matched the query — shown alongside content
+    /// hits, so "setup" finds setup.md even when the word isn't inside it.
+    @Published private(set) var nameMatches: Set<URL> = []
+
+    /// The open document's headings, for the outline menu in the toolbar.
+    @Published private(set) var outline: [OutlineItem] = []
     @Published private(set) var isSearching = false
 
     /// Queries shorter than this match too much to be useful.
@@ -80,17 +96,23 @@ final class AppModel: ObservableObject {
     /// in the chosen order.
     var visibleTree: [FileNode] {
         let nodes = isSearchActive
-            ? FileTree.restrict(tree, to: Set(searchResults.map(\.url)))
+            ? FileTree.restrict(tree, to: Set(searchResults.map(\.url)).union(nameMatches))
             : tree
         return FileTree.sort(nodes, by: sortOrder)
     }
 
+    /// Files that matched only by name — the result summary counts them apart,
+    /// since they have no match count or snippet.
+    var nameOnlyMatchCount: Int {
+        nameMatches.count { searchHitsByURL[$0] == nil }
+    }
+
     func matchCount(for url: URL) -> Int? {
-        searchResults.first { $0.url == url }?.matchCount
+        searchHitsByURL[url]?.matchCount
     }
 
     func snippet(for url: URL) -> String? {
-        searchResults.first { $0.url == url }?.snippet
+        searchHitsByURL[url]?.snippet
     }
 
     /// What to call the open file in the window title — its document title when
@@ -189,6 +211,7 @@ final class AppModel: ObservableObject {
     func open(folder url: URL, select fileToSelect: URL? = nil) {
         let folder = url.canonicalFileURL
         root = folder
+        webViewController.documentRoot = folder
         searchText = ""
         expanded = []
         isScanning = true
@@ -215,6 +238,7 @@ final class AppModel: ObservableObject {
                     self.select(first.url)
                 } else {
                     self.selection = nil
+                    self.outline = []
                 }
             }
         }
@@ -227,8 +251,10 @@ final class AppModel: ObservableObject {
     func closeFolder() {
         watcher = nil
         root = nil
+        webViewController.documentRoot = nil
         tree = []
         selection = nil
+        outline = []
         searchText = ""
         UserDefaults.standard.removeObject(forKey: lastFolderKey)
         // Deliberately emptying a window should stick, so this save is allowed
@@ -264,9 +290,14 @@ final class AppModel: ObservableObject {
 
         guard query.count >= Self.minimumQueryLength else {
             searchResults = []
+            nameMatches = []
             isSearching = false
             return
         }
+
+        // Name matching is a walk of the in-memory tree; do it right away
+        // rather than alongside the content search.
+        nameMatches = FileTree.matchingNames(query, in: tree)
 
         let files = FileTree.allFiles(tree)
         isSearching = true
@@ -288,6 +319,7 @@ final class AppModel: ObservableObject {
     func clearSearch() {
         searchText = ""
         searchResults = []
+        nameMatches = []
         isSearching = false
         searchTask?.cancel()
     }
@@ -338,6 +370,9 @@ final class AppModel: ObservableObject {
         // Opening a search result jumps to the first match in the page.
         webViewController.pendingFind = isSearchActive ? searchText : nil
         webViewController.show(path: url.path)
+        refreshOutline()
+        // Keep the on-disk session close to what's on screen, crash included.
+        WindowRouter.shared.scheduleSave()
     }
 
     /// Called when the page itself navigated (a markdown link was followed).
@@ -347,6 +382,24 @@ final class AppModel: ObservableObject {
         selection = url
         if let ancestors = FileTree.ancestors(of: url, in: tree) {
             expanded.formUnion(ancestors)
+        }
+        refreshOutline()
+    }
+
+    /// Re-reads the selected document's headings for the outline menu.
+    private func refreshOutline() {
+        guard let selection else {
+            outline = []
+            return
+        }
+        let url = selection
+        Task.detached(priority: .utility) {
+            let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+            let items = DocumentOutline.headings(inMarkdown: text)
+            await MainActor.run { [weak self] in
+                guard let self, self.selection == url else { return }
+                self.outline = items
+            }
         }
     }
 
@@ -368,9 +421,11 @@ final class AppModel: ObservableObject {
         // Anything that changed is stale in the search cache.
         for path in paths { ContentSearch.shared.invalidate(path: path) }
 
-        // The open document changed on disk — re-render it where the reader is.
+        // The open document changed on disk — re-render it where the reader is,
+        // and refresh its outline, since the headings may have changed too.
         if let selection, FileTree.changeAffects(path: selection.path, changedPaths: paths) {
             webViewController.reload()
+            refreshOutline()
         }
 
         guard FileTree.changesAffectTree(paths) else { return }

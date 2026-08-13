@@ -160,6 +160,22 @@ p, blockquote, ul, ol, dl, table, pre, details {
 a { color: var(--accent-fg); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* Links that leave the app for the browser get a small departure mark.
+   (The renderer tags them with data-external.) \FE0E keeps the arrow as
+   text rather than an emoji. */
+a[data-external]::after {
+  content: "\2197\FE0E";
+  margin-left: .1em;
+  font-size: .72em;
+  vertical-align: .18em;
+  color: var(--fg-subtle);
+  text-decoration: none;
+}
+a[data-external]:hover::after { color: var(--accent-fg); }
+
+/* <details> reads as clickable, like GitHub renders it. */
+summary { cursor: pointer; }
+
 strong { font-weight: 600; }
 
 hr {
@@ -326,6 +342,17 @@ img[src$=".svg"] { background: transparent; }
   color: var(--danger-fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
+}
+
+/* ---------- print ---------- */
+
+@media print {
+  /* The tall reading tail below the last line would print as blank pages. */
+  .page { padding-bottom: 0; }
+  /* On paper there is no scrolling — wrap long code lines instead of clipping. */
+  pre, pre code { white-space: pre-wrap; word-break: break-word; }
+  .copy-button, .anchor { display: none; }
+  pre, blockquote, table, img { break-inside: avoid; }
 }
 
 /* ---------- highlight.js (GitHub theme) ---------- */

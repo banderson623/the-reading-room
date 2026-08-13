@@ -42,7 +42,7 @@ public enum MarkdownRenderer {
 private struct HTMLFormatter: MarkupVisitor {
     typealias Result = String
 
-    private var usedSlugs: [String: Int] = [:]
+    private var slugger = Slugger()
     /// The document's source, by line, as UTF-8 — source positions are byte
     /// offsets, and these files are full of em dashes.
     private let sourceLines: [[UInt8]]
@@ -338,6 +338,18 @@ private struct HTMLFormatter: MarkupVisitor {
 
     /// GitHub-compatible heading slug, de-duplicated with a numeric suffix.
     private mutating func uniqueSlug(for text: String) -> String {
+        slugger.slug(for: text)
+    }
+}
+
+/// GitHub-compatible heading slugs, de-duplicated with a numeric suffix.
+///
+/// Shared between the renderer (heading ids) and the document outline (jump
+/// targets) — the two have to agree on every slug, so there is one algorithm.
+struct Slugger {
+    private var usedSlugs: [String: Int] = [:]
+
+    mutating func slug(for text: String) -> String {
         var base = text.lowercased()
             .replacingOccurrences(of: "'", with: "")
             .replacingOccurrences(of: "\u{2019}", with: "")
@@ -348,10 +360,9 @@ private struct HTMLFormatter: MarkupVisitor {
             return character == " " ? "-" : " "
         })
         base = base.replacingOccurrences(of: " ", with: "")
-        while base.contains("--") {
-            base = base.replacingOccurrences(of: "--", with: "-")
-        }
-        base = base.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        // No collapsing or trimming of hyphens: GitHub keeps them ("a - b"
+        // slugs to "a---b"), and anchors written against GitHub's slugger
+        // should resolve here too.
         if base.isEmpty { base = "section" }
 
         let count = usedSlugs[base, default: 0]

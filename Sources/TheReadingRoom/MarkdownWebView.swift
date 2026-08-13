@@ -16,6 +16,10 @@ final class WebViewController: ObservableObject {
     /// search result, so the view lands on the match.
     var pendingFind: String?
 
+    /// The folder open in this window — the boundary asset requests are
+    /// checked against (see `AssetAccessPolicy`).
+    var documentRoot: URL?
+
     fileprivate weak var webView: WKWebView?
     /// Selection changes come from the sidebar; link clicks come from the page.
     /// This distinguishes them so we don't fight over navigation.
@@ -65,6 +69,14 @@ final class WebViewController: ObservableObject {
     func goBack() { webView?.goBack() }
     func goForward() { webView?.goForward() }
 
+    /// Jumps to a heading by its anchor — used by the outline menu. Slugs only
+    /// ever contain letters, numbers, "-" and "_" (see `Slugger`), so they can
+    /// be embedded in the script directly.
+    func scrollTo(anchor slug: String) {
+        let script = "document.getElementById('\(slug)')?.scrollIntoView()"
+        webView?.evaluateJavaScript(script)
+    }
+
     func zoomIn() { apply(ZoomLadder.next(above: zoom)) }
     func zoomOut() { apply(ZoomLadder.next(below: zoom)) }
 
@@ -84,16 +96,28 @@ final class WebViewController: ObservableObject {
         webView.pageZoom = zoom
     }
 
+    /// True after a find came up empty — the find bar says so, since a search
+    /// that silently does nothing looks broken.
+    @Published private(set) var findFoundNothing = false
+
     func find(_ text: String, backwards: Bool = false) {
         guard !text.isEmpty else { return }
         let configuration = WKFindConfiguration()
         configuration.backwards = backwards
         configuration.wraps = true
         configuration.caseSensitive = false
-        webView?.find(text, configuration: configuration, completionHandler: { _ in })
+        webView?.find(text, configuration: configuration) { [weak self] result in
+            self?.findFoundNothing = !result.matchFound
+        }
+    }
+
+    /// Clears the "not found" notice — called when the query is edited.
+    func resetFindFeedback() {
+        findFoundNothing = false
     }
 
     func clearFind() {
+        findFoundNothing = false
         // Dismisses the highlight by searching for nothing findable.
         webView?.evaluateJavaScript("window.getSelection().removeAllRanges()")
     }
@@ -124,7 +148,18 @@ struct MarkdownWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.setURLSchemeHandler(DocumentServer(), forURLScheme: Scheme.name)
+        let controller = self.controller
+        let server = DocumentServer(assetRoots: { [weak controller] in
+            var roots: [URL] = []
+            if let root = controller?.documentRoot { roots.append(root) }
+            // The document itself may sit outside the root after a ../ link;
+            // its own folder is fair game for its images.
+            if let path = controller?.loadedPath {
+                roots.append(URL(fileURLWithPath: path).deletingLastPathComponent())
+            }
+            return roots
+        })
+        configuration.setURLSchemeHandler(server, forURLScheme: Scheme.name)
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.userContentController.add(context.coordinator, name: "app")
         configuration.suppressesIncrementalRendering = false
@@ -245,6 +280,9 @@ struct MarkdownWebView: NSViewRepresentable {
                 guard let offset = payload["y"] as? Double,
                       let path = parent.controller.loadedPath else { return }
                 ScrollStore.shared.record(path: path, offset: offset)
+                // The reading position is part of the session; keep the saved
+                // copy fresh so a crash doesn't lose it.
+                WindowRouter.shared.scheduleSave()
             case "copy":
                 guard let text = payload["text"] as? String else { return }
                 NSPasteboard.general.clearContents()

@@ -201,6 +201,8 @@ ul.contains-task-list { list-style: none; padding-left: 1.4em; }
   margin: 0 .35em .2em -1.2em;
   vertical-align: middle;
 }
+/* Enabled only in the app, where ticking one writes back to the file. */
+.task-list-item input:not(:disabled) { cursor: pointer; }
 
 dt { font-weight: 600; font-style: italic; margin-top: 16px; }
 dd { margin: 0 0 16px 16px; }

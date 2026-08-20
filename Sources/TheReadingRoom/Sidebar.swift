@@ -126,6 +126,9 @@ private struct NodeRows: View {
                         Button("Copy Name") {
                             model.copyToClipboard(node.name)
                         }
+                        Button("Copy Deep Link") {
+                            model.copyDeepLink(to: node.url)
+                        }
                     }
             }
         }

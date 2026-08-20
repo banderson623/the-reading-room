@@ -50,6 +50,23 @@
     });
   }
 
+  // Task checkboxes are inert in the rendered HTML; the app turns them on so a
+  // tick rewrites the marker in the file. It is the only editing there is.
+  function enableTaskCheckboxes() {
+    if (!(window.webkit && window.webkit.messageHandlers.app)) return;
+    document.querySelectorAll('input[type="checkbox"][data-line]').forEach(function (box) {
+      box.disabled = false;
+      box.addEventListener("change", function () {
+        post({
+          kind: "toggle",
+          line: Number(box.getAttribute("data-line")),
+          was: !box.checked,
+          now: box.checked,
+        });
+      });
+    });
+  }
+
   // Let the app persist scroll position per file.
   function reportScroll() {
     post({ kind: "scroll", y: window.scrollY });
@@ -70,6 +87,7 @@
 
   highlight();
   addCopyButtons();
+  enableTaskCheckboxes();
 
   if (window.__restoreScroll) {
     // Images loading above the viewport shift the layout after the first

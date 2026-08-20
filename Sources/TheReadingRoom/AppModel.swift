@@ -136,6 +136,16 @@ final class AppModel: ObservableObject {
         selection.map { relativePath(of: $0) }
     }
 
+    /// A `reading-room://` link that brings this file back up, in the folder
+    /// it's being read in.
+    func deepLink(to url: URL) -> String {
+        DeepLink.string(file: url, root: root)
+    }
+
+    func copyDeepLink(to url: URL) {
+        copyToClipboard(deepLink(to: url))
+    }
+
     func copyToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
@@ -423,7 +433,8 @@ final class AppModel: ObservableObject {
 
         // The open document changed on disk — re-render it where the reader is,
         // and refresh its outline, since the headings may have changed too.
-        if let selection, FileTree.changeAffects(path: selection.path, changedPaths: paths) {
+        if let selection, FileTree.changeAffects(path: selection.path, changedPaths: paths),
+           !SelfWrites.shared.claim(path: selection.path) {
             webViewController.reload()
             refreshOutline()
         }

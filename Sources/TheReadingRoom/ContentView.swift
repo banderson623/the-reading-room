@@ -139,6 +139,9 @@ struct ContentView: View {
                     model.webViewController.resetZoom()
                 }
                 Divider()
+                Button("Copy Deep Link") {
+                    if let selection = model.selection { model.copyDeepLink(to: selection) }
+                }
                 Button("Reveal in Finder") { model.revealInFinder() }
                 Button("Open in Default App") { model.openInDefaultEditor() }
                 Divider()

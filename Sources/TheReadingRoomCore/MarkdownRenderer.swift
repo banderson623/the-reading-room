@@ -10,10 +10,13 @@ import Markdown
 public enum MarkdownRenderer {
     /// Markdown in, HTML fragment out (no surrounding page shell).
     public static func render(markdown: String) -> String {
-        let (body, _) = stripFrontMatter(markdown)
+        let (body, dropped) = bodyAfterFrontMatter(markdown)
         // No smart punctuation: GitHub leaves quotes and dashes as typed.
         let document = Document(parsing: body, options: [.disableSmartOpts])
-        var formatter = HTMLFormatter(source: body)
+        // Task checkboxes carry the line they came from, and the reader edits
+        // the file on disk — so the count has to include the front matter that
+        // parsing never saw.
+        var formatter = HTMLFormatter(source: body, lineOffset: dropped)
         return formatter.visit(document)
     }
 
@@ -35,6 +38,15 @@ public enum MarkdownRenderer {
         }
         return (text, nil)
     }
+
+    /// The body, plus how many lines the front matter took — the offset that
+    /// turns a parsed line number back into a line of the file on disk.
+    static func bodyAfterFrontMatter(_ text: String) -> (body: String, droppedLines: Int) {
+        let (body, frontMatter) = stripFrontMatter(text)
+        guard frontMatter != nil else { return (body, 0) }
+        let bodyLines = body.components(separatedBy: "\n").count
+        return (body, text.components(separatedBy: "\n").count - bodyLines)
+    }
 }
 
 // MARK: - HTML formatter
@@ -47,8 +59,13 @@ private struct HTMLFormatter: MarkupVisitor {
     /// offsets, and these files are full of em dashes.
     private let sourceLines: [[UInt8]]
 
-    init(source: String) {
+    /// Added to every source line number this renderer reports, so the numbers
+    /// name lines of the original file rather than of the parsed body.
+    private let lineOffset: Int
+
+    init(source: String, lineOffset: Int = 0) {
         sourceLines = source.components(separatedBy: "\n").map { Array($0.utf8) }
+        self.lineOffset = lineOffset
     }
 
     mutating func defaultVisit(_ markup: Markup) -> String {
@@ -160,20 +177,41 @@ private struct HTMLFormatter: MarkupVisitor {
     }
 
     private mutating func renderItem(_ item: ListItem, loose: Bool) -> String {
+        // The checkbox goes inside the item's first paragraph. In a loose list
+        // that paragraph is a block, so a checkbox placed before it would sit
+        // stranded on a line of its own above the text.
+        var pendingCheckbox = item.checkbox.map { checkbox -> String in
+            let checked = checkbox == .checked ? " checked" : ""
+            // The line the marker sits on: what the app rewrites when the
+            // reader ticks the box. Rendered disabled — only the app enables it.
+            let line = item.range.map { " data-line=\"\($0.lowerBound.line + lineOffset)\"" } ?? ""
+            return "<input type=\"checkbox\"\(line) disabled\(checked)> "
+        }
         var inner = ""
         for child in item.children {
+            var rendered: String
             if !loose, let paragraph = child as? Paragraph {
-                inner += visitChildren(of: paragraph)
+                rendered = visitChildren(of: paragraph)
+                if let checkbox = pendingCheckbox {
+                    rendered = checkbox + rendered
+                    pendingCheckbox = nil
+                }
             } else {
-                inner += visit(child)
+                rendered = visit(child)
+                if let checkbox = pendingCheckbox, child is Paragraph,
+                   rendered.hasPrefix("<p>") {
+                    rendered = "<p>" + checkbox + rendered.dropFirst("<p>".count)
+                    pendingCheckbox = nil
+                }
             }
+            inner += rendered
         }
-        guard let checkbox = item.checkbox else {
+        guard item.checkbox != nil else {
             return "<li>\(inner)</li>\n"
         }
-        let checked = checkbox == .checked ? " checked" : ""
-        return "<li class=\"task-list-item\">"
-            + "<input type=\"checkbox\" disabled\(checked)> \(inner)</li>\n"
+        // An item that opens with something other than a paragraph still needs
+        // its checkbox somewhere: fall back to the front of the item.
+        return "<li class=\"task-list-item\">\(pendingCheckbox ?? "")\(inner)</li>\n"
     }
 
     /// CommonMark looseness: a blank line between items, or between blocks

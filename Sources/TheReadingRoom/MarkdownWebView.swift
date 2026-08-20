@@ -287,8 +287,27 @@ struct MarkdownWebView: NSViewRepresentable {
                 guard let text = payload["text"] as? String else { return }
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)
+            case "toggle":
+                guard let line = (payload["line"] as? NSNumber)?.intValue,
+                      let was = (payload["was"] as? NSNumber)?.boolValue,
+                      let now = (payload["now"] as? NSNumber)?.boolValue,
+                      let path = parent.controller.loadedPath else { return }
+                toggleTask(line: line, from: was, to: now, atPath: path)
             default:
                 break
+            }
+        }
+
+        /// Writes a ticked checkbox back to the file. The page already shows the
+        /// new state, so success is silent; a refused write re-renders from disk
+        /// so the reader sees what the file actually says.
+        private func toggleTask(line: Int, from was: Bool, to now: Bool, atPath path: String) {
+            SelfWrites.shared.record(path: path)
+            do {
+                try TaskListWriter.toggle(line: line, from: was, to: now, atPath: path)
+            } catch {
+                NSLog("[TheReadingRoom] could not update the task at line \(line): \(error)")
+                parent.controller.reload()
             }
         }
     }

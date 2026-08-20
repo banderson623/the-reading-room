@@ -65,8 +65,40 @@ struct MarkdownRendererTests {
     func taskLists() {
         let html = MarkdownRenderer.render(markdown: "- [x] done\n- [ ] todo")
         #expect(html.contains("class=\"contains-task-list\""))
-        #expect(html.contains("<input type=\"checkbox\" disabled checked> done"))
-        #expect(html.contains("<input type=\"checkbox\" disabled> todo"))
+        #expect(html.contains("<input type=\"checkbox\" data-line=\"1\" disabled checked> done"))
+        #expect(html.contains("<input type=\"checkbox\" data-line=\"2\" disabled> todo"))
+    }
+
+    @Test("A loose task list keeps the checkbox inside the first paragraph")
+    func looseTaskLists() {
+        let markdown = """
+        - [ ] first item
+
+        - [x] second item
+        """
+        let html = MarkdownRenderer.render(markdown: markdown)
+        #expect(html.contains(
+            "<li class=\"task-list-item\"><p><input type=\"checkbox\" data-line=\"1\" disabled> first item</p>"))
+        #expect(html.contains(
+            "<li class=\"task-list-item\"><p><input type=\"checkbox\" data-line=\"3\" disabled checked> "
+                + "second item</p>"))
+        #expect(!html.contains("disabled> <p>"))
+    }
+
+    @Test("Task checkboxes carry the source line, counting front matter")
+    func taskCheckboxLines() {
+        let markdown = """
+        ---
+        title: Notes
+        ---
+        # Notes
+
+        - [ ] first
+        - [x] second
+        """
+        let html = MarkdownRenderer.render(markdown: markdown)
+        #expect(html.contains("data-line=\"6\" disabled> first"))
+        #expect(html.contains("data-line=\"7\" disabled checked> second"))
     }
 
     @Test("A list with a nested sublist and no blank lines stays tight")

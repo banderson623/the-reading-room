@@ -128,6 +128,13 @@ private struct ViewerCommands: Commands {
             .keyboardShortcut("c", modifiers: [.command, .option, .shift])
             .disabled(model?.selection == nil)
 
+            Button("Copy Deep Link") {
+                guard let model, let selection = model.selection else { return }
+                model.copyDeepLink(to: selection)
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+            .disabled(model?.selection == nil)
+
             Divider()
             Button("Find in Page…") { model?.findBarVisible = true }
                 .keyboardShortcut("f")
@@ -237,10 +244,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { ChangeNotifier.shared.start() }
     }
 
-    /// Folders and files opened from Finder or dropped on the Dock icon.
+    /// Folders and files opened from Finder or dropped on the Dock icon — and
+    /// `reading-room://` links clicked anywhere on the system.
     func application(_ application: NSApplication, open urls: [URL]) {
         MainActor.assumeIsolated {
-            for url in urls { WindowRouter.shared.route(url) }
+            for url in urls {
+                if let target = DeepLink.target(of: url) {
+                    WindowRouter.shared.open(target)
+                } else {
+                    WindowRouter.shared.route(url)
+                }
+            }
         }
     }
 

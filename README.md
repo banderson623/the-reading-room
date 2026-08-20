@@ -61,9 +61,11 @@ build falls back to ad-hoc and everything except notifications still works.
 | Open a web link | click it — it goes to your default browser |
 | Find in the page | ⌘F, then ⌘G / ⇧⌘G |
 | Copy the file's path | ⇧⌘C (relative), ⌥⇧⌘C (absolute), or right-click a row |
+| Copy a link back to a document | ⇧⌘L, right-click a row, or the ⋯ menu — see [Deep links](#deep-links) |
 | Reveal in Finder | ⇧⌘R |
 | Zoom | ⌘+ (or ⌘=) / ⌘- / ⌘0, or pinch on a trackpad. Steps through browser-style levels from 50% to 300%, remembered between launches |
 | Reload | ⌘R |
+| Tick a task off | click a `- [ ]` checkbox — see below |
 
 Editing a file in another app re-renders it immediately, keeping your scroll
 position. Files appearing, disappearing, or moving update the sidebar.
@@ -85,6 +87,15 @@ are marked with a small ↗. YAML front matter is treated as metadata and
 not rendered. Light and dark follow the system appearance.
 
 Each document shows its last-modified date above the content.
+
+### Ticking a box
+
+Task-list checkboxes are live: clicking one rewrites the `[ ]` / `[x]` marker in
+the file. That is the only edit the app makes — two characters on one line, with
+the rest of the file, including whitespace, left exactly as it was. If the line
+has changed since the page was rendered — no longer a task item, or already in
+the state you clicked it to — the write is refused and the document re-renders
+so you can see what the file actually says.
 
 ### Sidebar titles
 
@@ -111,6 +122,35 @@ them. `notifyOnChange` controls change notifications. Reopen the folder to apply
 **Help ▸ Edit Custom Stylesheet…** opens
 `~/.config/the-reading-room/custom.css`, appended after the built-in stylesheet.
 ⌘R reloads.
+
+### Deep links
+
+Every document has a URL that opens it here. **Copy Deep Link** — ⇧⌘L, the
+right-click menu on a sidebar row, or the ⋯ menu in the toolbar — puts one on
+the clipboard:
+
+```
+reading-room://open?path=/Users/me/notes/api/auth.md&root=/Users/me/notes
+```
+
+Paste it into a note, a ticket, a commit message, another markdown file — click
+it and the file comes up in The Reading Room, in the folder it was read in
+rather than its immediate parent. A window already on that folder comes to the
+front; otherwise it opens a new one. Links survive a relaunch: clicking one
+launches the app.
+
+`root` is optional, `path` may be relative to it, and the whole thing can be
+written as a plain path, so links are easy to build by hand or from a script:
+
+```bash
+open "reading-room:///Users/me/notes/api/auth.md"
+open "reading-room://open?root=/Users/me/notes&path=api/auth.md"
+open "reading-room://open?root=/Users/me/notes"          # just the folder
+```
+
+If the file has moved, the folder still opens. Registering the scheme is
+LaunchServices' job, so a link works once macOS has seen the app — build with
+`./build.sh --install`, or open it from `build/` once.
 
 ### Command line
 

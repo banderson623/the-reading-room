@@ -64,6 +64,50 @@ final class WindowRouter: ObservableObject {
         enqueue(WindowSession(root: folder, selection: file))
     }
 
+    /// Opens what a `reading-room://` link points at.
+    ///
+    /// The link names both the file and the folder it was read in, so the window
+    /// it opens looks like the one the link was copied from. Anything missing is
+    /// worked around rather than refused: a file that has moved still opens its
+    /// folder, and a link with no folder falls back to the file's own.
+    func open(_ link: DeepLink.Target) {
+        // The link may have come from another app; come forward either way.
+        NSApp.activate()
+
+        let file = link.file?.canonicalFileURL
+        let root = link.root?.canonicalFileURL
+
+        // A link pointing straight at a folder opens it.
+        if let file, Self.isDirectory(file) {
+            route(file)
+            return
+        }
+
+        let folder: URL? = {
+            if let root, Self.isDirectory(root) { return root }
+            guard let file else { return nil }
+            let parent = file.deletingLastPathComponent().canonicalFileURL
+            return Self.isDirectory(parent) ? parent : nil
+        }()
+
+        guard let folder else {
+            NSLog("[TheReadingRoom] deep link points at nothing that exists: \(link)")
+            return
+        }
+
+        guard let file, FileManager.default.fileExists(atPath: file.path) else {
+            route(folder)
+            return
+        }
+        reveal(file: file, preferringRoot: folder)
+    }
+
+    private static func isDirectory(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        return exists && isDirectory.boolValue
+    }
+
     private func enqueue(_ window: WindowSession) {
         pending.append(window)
         // No window yet (launch): the first one to appear takes it, and asks for
@@ -109,7 +153,8 @@ final class WindowRouter: ObservableObject {
         windows.values.contains { $0.model?.root == folder }
     }
 
-    /// Brings a file on screen — used when a change notification is clicked.
+    /// Brings a file on screen — a change notification clicked, or a deep link
+    /// followed.
     ///
     /// Unlike `route`, this looks for a window whose folder *contains* the file,
     /// since the file is usually nested somewhere below the opened folder.
@@ -131,7 +176,12 @@ final class WindowRouter: ObservableObject {
             return
         }
 
-        // Nothing has it open any more; fall back to opening its folder.
+        // Nothing has it open any more. Prefer the folder it was read in — the
+        // file is usually nested well below it — and fall back to its parent.
+        if let root = root?.canonicalFileURL, Self.isDirectory(root) {
+            enqueue(WindowSession(root: root, selection: file))
+            return
+        }
         route(file)
     }
 

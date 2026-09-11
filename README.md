@@ -51,8 +51,8 @@ build falls back to ad-hoc and everything except notifications still works.
 
 | | |
 | --- | --- |
-| Open a folder | drag it onto the window or the Dock icon, or ⌘O — it opens in a new window, leaving what you were reading alone. A folder already open just comes to the front; you never get two windows on one directory |
-| New window | ⌘N — starts empty, with its own folder, selection, and history |
+| Open a folder | drag it onto the window or the Dock icon, or ⌘O — it opens in a new window, leaving what you were reading alone. A folder already open just comes to the front; you never get two windows on one directory. A window standing empty takes the folder instead of a new window being made |
+| New window | ⌘N — starts empty, with its own folder, selection, and history. Only ever one at a time: a second ⌘N goes to the window that is already empty |
 | Pick up where you left off | quitting remembers every open window; relaunching reopens them on the same files, scrolled to the same place |
 | Search file *contents* | type in the sidebar field (⇧⌘F), matches shown with a preview line. Files whose *name* or title match appear too |
 | Jump to a heading | the outline button in the toolbar lists the document's headings |
@@ -195,6 +195,11 @@ offset — is written on quit and whenever the app loses focus, so an unexpected
 exit still leaves a recent record. Restoring queues those entries; each window
 takes one as it appears and then asks for the next, which is what unfolds a
 multi-window session one window at a time.
+
+`WindowRouter` is also the one place that decides whether something needs a
+window at all: a folder already open, or already queued for a window, is never
+given a second one, and a window that comes up empty closes itself unless it is
+the one window the reader asked for.
 
 ```bash
 swift test

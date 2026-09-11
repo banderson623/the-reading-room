@@ -63,12 +63,17 @@ private struct RootView: View {
                     model.restoreLastFolder()
                 }
                 router.spawnWindowIfPending()
+                // A window with nothing to show is either the app's one blank
+                // window or one nobody asked for, which the router closes again.
+                router.windowDidAppear(windowID, hasFolder: model.root != nil)
             }
             .onDisappear { router.unregister(windowID) }
             .onChange(of: router.spawnRequests) {
                 // A folder is waiting for a window; one window creates it, with a
                 // fresh key so SwiftUI makes a window instead of reusing this one.
-                if router.isOpener(windowID) {
+                // `hasPending` keeps a request another window already answered
+                // from leaving a blank window behind.
+                if router.isOpener(windowID), router.hasPending {
                     openWindow(id: TheReadingRoomApp.windowGroupID, value: UUID())
                 }
             }
@@ -77,14 +82,22 @@ private struct RootView: View {
 
 private struct ViewerCommands: Commands {
     @FocusedObject private var model: AppModel?
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
             Button("About The Reading Room") { AboutWindow.show() }
         }
 
-        // Left after .newItem so SwiftUI keeps its own "New Window" item.
-        CommandGroup(after: .newItem) {
+        // Replaces SwiftUI's own "New Window", which makes a blank window every
+        // time it's used. One is enough: a second ⌘N goes to the window that is
+        // already empty.
+        CommandGroup(replacing: .newItem) {
+            Button("New Window") { WindowRouter.shared.openEmptyWindow(using: openWindow) }
+                .keyboardShortcut("n")
+
+            Divider()
+
             Button("Open…") { model?.presentOpenPanel() }
                 .keyboardShortcut("o")
 

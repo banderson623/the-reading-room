@@ -413,6 +413,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Closes the open document without closing the window — back to the
+    /// "no file selected" state, sidebar and folder untouched.
+    func closeFile() {
+        selection = nil
+        webViewController.show(path: nil)
+        outline = []
+        WindowRouter.shared.scheduleSave()
+    }
+
     func revealInFinder() {
         guard let selection else { return }
         NSWorkspace.shared.activateFileViewerSelecting([selection])

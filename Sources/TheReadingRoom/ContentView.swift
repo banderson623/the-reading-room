@@ -146,10 +146,19 @@ struct ContentView: View {
                 Button("Open in Default App") { model.openInDefaultEditor() }
                 Divider()
                 Button("Reload") { model.webViewController.reload() }
+                Button("Close File") { model.closeFile() }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .disabled(model.selection == nil)
+
+            Button {
+                model.closeFile()
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .disabled(model.selection == nil)
+            .help("Close File")
         }
     }
 }

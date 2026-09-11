@@ -10,9 +10,18 @@ import TheReadingRoomCore
 /// one place:
 ///
 /// 1. A window already showing that folder is brought to the front. There is
-///    never a second window on the same directory.
+///    never a second window on the same directory — nor a second *queued*
+///    window on one, which is how two files dropped from the same folder used
+///    to end up as two windows.
 /// 2. Otherwise, if the window that asked is empty, it opens there.
-/// 3. Otherwise the folder is queued and a new window is asked for.
+/// 3. Otherwise any other window standing empty takes it, rather than being
+///    left behind as a blank window next to the new one.
+/// 4. Otherwise the folder is queued and a new window is asked for.
+///
+/// At most one window is ever empty. ⌘N goes to the empty window if there is
+/// one, and a window that comes up with nothing to show — macOS restoring more
+/// windows than the session has folders, a spawn that raced the queue — closes
+/// itself unless it's the only window there is.
 ///
 /// Each window takes at most one queued entry as it appears, so a queued folder
 /// is never opened twice. At launch there are no windows yet, so the first one
@@ -49,7 +58,7 @@ final class WindowRouter: ObservableObject {
             focus(existing, selecting: file)
             // An empty window used only to pick this folder has no purpose now.
             if let origin, origin != id, let asked = windows[origin], asked.model?.root == nil {
-                asked.window?.close()
+                close(origin)
             }
             return
         }
@@ -60,7 +69,15 @@ final class WindowRouter: ObservableObject {
             return
         }
 
-        // 3. A window of its own.
+        // 3. A window standing empty. Opening a folder from Finder or a link
+        // while a blank window is up should fill that window, not add one.
+        if let (_, empty) = frontmostEmptyWindow() {
+            empty.model?.open(url)
+            focus(empty, selecting: nil)
+            return
+        }
+
+        // 4. A window of its own.
         enqueue(WindowSession(root: folder, selection: file))
     }
 
@@ -108,7 +125,22 @@ final class WindowRouter: ObservableObject {
         return exists && isDirectory.boolValue
     }
 
+    /// The one place a folder gets a window of its own, so the "one window per
+    /// folder" rule only has to be enforced here.
     private func enqueue(_ window: WindowSession) {
+        let folder = window.rootURL
+
+        if let existing = windows.values.first(where: { $0.model?.root == folder }) {
+            focus(existing, selecting: window.selectionURL)
+            return
+        }
+        // Already waiting for a window of its own — two requests for one folder
+        // (both files of a multi-file drop, say) share the window it's getting.
+        if let index = pending.firstIndex(where: { $0.rootURL == folder }) {
+            if window.selection != nil { pending[index] = window }
+            return
+        }
+
         pending.append(window)
         // No window yet (launch): the first one to appear takes it, and asks for
         // the next via `spawnWindowIfPending`.
@@ -148,6 +180,11 @@ final class WindowRouter: ObservableObject {
         pending.isEmpty ? nil : pending.removeFirst()
     }
 
+    /// Whether a folder is still waiting for a window. Checked before opening
+    /// one, so a spawn request that another window already answered doesn't
+    /// leave a blank window behind.
+    var hasPending: Bool { !pending.isEmpty }
+
     /// Whether some window is already showing this folder.
     func isOpenAnywhere(_ folder: URL) -> Bool {
         windows.values.contains { $0.model?.root == folder }
@@ -179,10 +216,86 @@ final class WindowRouter: ObservableObject {
         // Nothing has it open any more. Prefer the folder it was read in — the
         // file is usually nested well below it — and fall back to its parent.
         if let root = root?.canonicalFileURL, Self.isDirectory(root) {
+            if let (_, empty) = frontmostEmptyWindow() {
+                empty.model?.open(folder: root, select: file)
+                focus(empty, selecting: nil)
+                return
+            }
             enqueue(WindowSession(root: root, selection: file))
             return
         }
         route(file)
+    }
+
+    // MARK: - Empty windows
+
+    /// Empty windows that have been asked for but haven't appeared yet.
+    private var requestedEmptyWindows = 0
+
+    /// Windows asked to close before their `NSWindow` was known.
+    private var closing: Set<UUID> = []
+
+    /// ⌘N. One blank window is enough, so this goes to the one already standing
+    /// empty when there is one.
+    func openEmptyWindow(using action: OpenWindowAction) {
+        if let (_, empty) = frontmostEmptyWindow() {
+            focus(empty, selecting: nil)
+            return
+        }
+        requestedEmptyWindows += 1
+        action(id: TheReadingRoomApp.windowGroupID, value: UUID())
+    }
+
+    /// A window has finished coming up, with or without a folder.
+    ///
+    /// An empty one stays only if it's the one that was asked for, or the only
+    /// window there is. Otherwise it's a blank window nobody wanted — macOS
+    /// restoring more windows than the session has folders, or a spawn request
+    /// another window already answered — and it closes again.
+    func windowDidAppear(_ id: UUID, hasFolder: Bool) {
+        // Whatever it came up with, this is the window the last request made.
+        let wasRequested = requestedEmptyWindows > 0
+        if wasRequested { requestedEmptyWindows -= 1 }
+
+        guard !hasFolder, !wasRequested else { return }
+        let others = windows.contains {
+            $0.key != id && !closing.contains($0.key) && $0.value.model != nil
+        }
+        guard others else { return }
+        close(id)
+    }
+
+    /// The window in front with nothing open, if any. A window already on its
+    /// way out doesn't count — handing it a folder would take the folder with it.
+    private func frontmostEmptyWindow(excluding id: UUID? = nil) -> (UUID, Registration)? {
+        windows
+            .filter {
+                $0.key != id && !closing.contains($0.key)
+                    && $0.value.model != nil && $0.value.model?.root == nil
+            }
+            .min { ($0.value.window?.orderedIndex ?? .max) < ($1.value.window?.orderedIndex ?? .max) }
+    }
+
+    /// Closes a window, waiting for its `NSWindow` if the view has appeared but
+    /// `attach` hasn't run yet.
+    private func close(_ id: UUID) {
+        closing.insert(id)
+        closeIfReady(id)
+    }
+
+    private func closeIfReady(_ id: UUID) {
+        guard closing.contains(id), let window = windows[id]?.window else { return }
+        closing.remove(id)
+        // Off the current turn: closing a window while SwiftUI is still setting
+        // its scene up is a poor time to pull it out from under it.
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                // The windows this one was redundant to may have closed in the
+                // meantime; tidying up should never be what quits the app.
+                guard WindowRouter.shared.windows.contains(where: { $0.key != id }) else { return }
+                window.close()
+            }
+        }
     }
 
     // MARK: - Session
@@ -274,12 +387,14 @@ final class WindowRouter: ObservableObject {
         guard var registration = windows[id], window != nil else { return }
         registration.window = window
         windows[id] = registration
+        closeIfReady(id)
     }
 
     func unregister(_ id: UUID) {
         // Capture the layout before the window goes, so quitting keeps it.
         saveSession()
         windows[id] = nil
+        closing.remove(id)
         if openerWindow == id { openerWindow = nil }
     }
 

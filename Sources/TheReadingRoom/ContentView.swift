@@ -67,6 +67,17 @@ struct ContentView: View {
                 )
                 .id("markdown-web-view")
 
+                Button {
+                    model.closeFile()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 16)
+                .help("Close File")
+
                 if model.findBarVisible {
                     FindBar(
                         text: $model.findText,
@@ -146,6 +157,7 @@ struct ContentView: View {
                 Button("Open in Default App") { model.openInDefaultEditor() }
                 Divider()
                 Button("Reload") { model.webViewController.reload() }
+                Button("Close File") { model.closeFile() }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

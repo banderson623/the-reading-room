@@ -62,7 +62,7 @@ build falls back to ad-hoc and everything except notifications still works.
 | Find in the page | ⌘F, then ⌘G / ⇧⌘G |
 | Copy the file's path | ⇧⌘C (relative), ⌥⇧⌘C (absolute), or right-click a row |
 | Copy a link back to a document | ⇧⌘L, right-click a row, or the ⋯ menu — see [Deep links](#deep-links) |
-| Close the open file | the ✕ next to the "Last modified" date, or ⋯ ▸ Close File — clears the document but leaves the window, sidebar, and folder open |
+| Close the open file | the ✕ in the toolbar, or ⋯ ▸ Close File — clears the document but leaves the window, sidebar, and folder open |
 | Reveal in Finder | ⇧⌘R |
 | Zoom | ⌘+ (or ⌘=) / ⌘- / ⌘0, or pinch on a trackpad. Steps through browser-style levels from 50% to 300%, remembered between launches |
 | Reload | ⌘R |

@@ -175,6 +175,11 @@ struct MarkdownWebView: NSViewRepresentable {
             webView.isInspectable = true
         }
 
+        // A brand-new web view starts blank, no matter what the controller
+        // last thought was loaded — otherwise a stale load that landed on a
+        // just-torn-down web view (see DocumentLoadPolicy) can make this one
+        // skip loading anything at all.
+        controller.loadedPath = nil
         controller.webView = webView
         if let path { controller.show(path: path) }
         return webView

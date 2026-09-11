@@ -67,17 +67,6 @@ struct ContentView: View {
                 )
                 .id("markdown-web-view")
 
-                Button {
-                    model.closeFile()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, 16)
-                .help("Close File")
-
                 if model.findBarVisible {
                     FindBar(
                         text: $model.findText,
@@ -162,6 +151,14 @@ struct ContentView: View {
                 Image(systemName: "ellipsis.circle")
             }
             .disabled(model.selection == nil)
+
+            Button {
+                model.closeFile()
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .disabled(model.selection == nil)
+            .help("Close File")
         }
     }
 }

@@ -107,27 +107,10 @@ body {
 
 .doc-meta {
   margin-bottom: 18px;
-  padding-right: 0;
   font-size: 12px;
-  line-height: 20px;
   color: var(--fg-muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
-  position: relative;
-}
-
-@media (min-width: 701px) {
-  .doc-meta { top: -36px; }
-}
-
-/* .page tightens its own padding below 700px (top 34->24, right 44->20),
-   which otherwise drags .doc-meta up and right along with it — compensate
-   so it holds the same visual position relative to the window. */
-@media (max-width: 700px) {
-  .doc-meta {
-    padding-right: 24px;
-    top: -26px;
-  }
 }
 
 /* ---------- headings ---------- */

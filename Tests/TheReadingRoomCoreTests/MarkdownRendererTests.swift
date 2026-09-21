@@ -47,6 +47,31 @@ struct MarkdownRendererTests {
         #expect(plain.contains("<pre><code>plain"))
     }
 
+    @Test("A mermaid fence becomes a diagram placeholder holding its source")
+    func mermaidBlocks() {
+        let html = MarkdownRenderer.render(markdown: "```mermaid\ngraph TD\n  A --> B\n```")
+        // Mermaid's own convention, and a code block until the page draws it.
+        #expect(html.contains("<pre class=\"mermaid\">graph TD\n  A --&gt; B\n</pre>"))
+        #expect(!html.contains("language-mermaid"))
+    }
+
+    @Test("Only pages with a diagram load the Mermaid script")
+    func mermaidScriptOnDemand() {
+        let diagram = MarkdownRenderer.render(markdown: "```mermaid\ngraph TD\n  A --> B\n```")
+        let prose = MarkdownRenderer.render(markdown: "Some `mermaid` in prose, and a mermaid fence in a code block:\n\n````md\n```mermaid\n````")
+        #expect(Page.usesMermaid(diagram))
+        #expect(!Page.usesMermaid(prose))
+
+        let withDiagram = Page.document(title: "t", body: diagram)
+        let without = Page.document(title: "t", body: prose)
+        #expect(withDiagram.contains("mdv://asset/mermaid.js"))
+        #expect(!without.contains("mermaid.js"))
+        // Mermaid loads before the page script that calls it.
+        let mermaidAt = withDiagram.range(of: "mermaid.js")!.lowerBound
+        let appAt = withDiagram.range(of: "app.js")!.lowerBound
+        #expect(mermaidAt < appAt)
+    }
+
     @Test("Tables render with per-column alignment")
     func tables() {
         let markdown = """

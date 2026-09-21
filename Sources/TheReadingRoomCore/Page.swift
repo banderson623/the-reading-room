@@ -25,7 +25,7 @@ public enum Page {
         \(meta(modified: modified))\(body)
         </article>
         \(restore)<script src="\(Scheme.assetURL("highlight.js"))"></script>
-        <script src="\(Scheme.assetURL("app.js"))"></script>
+        \(mermaidScript(for: body))<script src="\(Scheme.assetURL("app.js"))"></script>
         </body>
         </html>
         """
@@ -57,7 +57,7 @@ public enum Page {
         \(meta(modified: modified))\(body)
         </article>
         <script>\(Resources.highlightJS)</script>
-        <script>\(Resources.appJS)</script>
+        \(inlineMermaidScript(for: body))<script>\(Resources.appJS)</script>
         </body>
         </html>
         """
@@ -68,6 +68,24 @@ public enum Page {
             title: title,
             body: "<h1>\(escapeHTML(title))</h1>\n<p class=\"render-error\">\(escapeHTML(detail))</p>"
         )
+    }
+
+    /// Whether the body has a Mermaid diagram to draw — a `mermaid` fence, or
+    /// raw HTML using Mermaid's own `class="mermaid"` convention.
+    static func usesMermaid(_ body: String) -> Bool {
+        body.contains("class=\"mermaid\"")
+    }
+
+    /// Mermaid is a few megabytes of script, so only pages that draw a diagram
+    /// load it.
+    private static func mermaidScript(for body: String) -> String {
+        guard usesMermaid(body) else { return "" }
+        return "<script src=\"\(Scheme.assetURL("mermaid.js"))\"></script>\n"
+    }
+
+    private static func inlineMermaidScript(for body: String) -> String {
+        guard usesMermaid(body) else { return "" }
+        return "<script>\(Resources.mermaidJS)</script>\n"
     }
 
     /// The "Last modified" line above the document.

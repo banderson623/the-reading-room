@@ -140,6 +140,9 @@ final class DocumentServer: NSObject, WKURLSchemeHandler {
         case "highlight.js":
             content = Resources.highlightJS
             mimeType = "text/javascript"
+        case "mermaid.js":
+            content = Resources.mermaidJS
+            mimeType = "text/javascript"
         default:
             content = ""
             mimeType = "text/plain"

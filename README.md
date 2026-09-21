@@ -39,8 +39,9 @@ it. Other options:
 - `--debug` builds for the native architecture only (faster, for iterating)
 - `--run` launches the app when the build finishes
 
-Requires Xcode's Swift toolchain. The only dependency is
-[apple/swift-markdown](https://github.com/apple/swift-markdown), fetched by SwiftPM.
+Requires Xcode's Swift toolchain. The only Swift dependency is
+[apple/swift-markdown](https://github.com/apple/swift-markdown), fetched by SwiftPM;
+highlight.js and Mermaid are checked in under `Sources/TheReadingRoomCore/Resources`.
 
 The app is signed with the first "Apple Development" identity in your keychain,
 which is what Notification Center wants — an ad-hoc signature is unreliable
@@ -82,8 +83,12 @@ CommonMark plus GitHub's extensions: tables with alignment, task lists,
 strikethrough, autolinks, footnote-style link references, raw HTML, and
 `> [!NOTE]`-style alerts. Strikethrough needs `~~two tildes~~` — cmark-gfm also
 pairs single ones, which turns prose like "~$230/mo … (~$200)" into one long
-struck-out run. Code blocks are syntax highlighted. Headings get
-anchors, so `#section` links work. Links that leave the app for your browser
+struck-out run. Code blocks are syntax highlighted. A ` ```mermaid ` block is
+drawn as a diagram — flowcharts, sequence diagrams, and the rest of what
+[Mermaid](https://mermaid.js.org) supports — in light or dark to match the
+page. One that won't parse shows its source as a code block with the parser's
+complaint under it, so nothing silently disappears. Headings get anchors, so
+`#section` links work. Links that leave the app for your browser
 are marked with a small ↗. YAML front matter is treated as metadata and
 not rendered. Light and dark follow the system appearance.
 
@@ -184,7 +189,8 @@ read restrictions never come up.
 
 **Markdown is parsed once in Swift, not in JavaScript.** `swift-markdown`
 (cmark-gfm) produces the AST and a visitor writes the HTML, so the page ships as
-finished HTML with only a syntax highlighter running on it.
+finished HTML with only a syntax highlighter running on it — plus Mermaid, which
+has to draw in a browser, and is only loaded by pages that have a diagram.
 
 Search reads each file once and caches it by modification date, so typing
 re-scans from memory. Searches run off the main thread and are cancelled when the

@@ -108,6 +108,11 @@ private struct HTMLFormatter: MarkupVisitor {
             .components(separatedBy: CharacterSet(charactersIn: " \t{,:"))
             .first?
             .lowercased() ?? ""
+        if language == "mermaid" {
+            // A diagram, not code: the page script draws it in place. Until
+            // then (or if drawing fails) the source shows as a code block.
+            return "<pre class=\"mermaid\">\(escapeHTML(codeBlock.code))</pre>\n"
+        }
         let classAttribute = language.isEmpty ? "" : " class=\"language-\(escapeAttribute(language))\""
         return "<pre><code\(classAttribute)>\(escapeHTML(codeBlock.code))</code></pre>\n"
     }

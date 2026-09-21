@@ -6,6 +6,7 @@ public enum Resources {
     public static let markdownCSS = load("github-markdown.css")
     public static let appJS = load("app.js")
     public static let highlightJS = load("highlight.min.js")
+    public static let mermaidJS = load("mermaid.min.js")
 
     /// Optional user stylesheet, appended after the built-in CSS. Read fresh on
     /// every render so edits show up on reload.

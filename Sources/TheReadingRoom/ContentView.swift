@@ -5,16 +5,25 @@ import TheReadingRoomCore
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
     @State private var isDropTargeted = false
+    /// Shared across windows, and remembered between launches.
+    @AppStorage("sidebarWidth") private var sidebarWidth = 250.0
 
     var body: some View {
-        NavigationSplitView {
-            Sidebar()
-                .navigationSplitViewColumnWidth(min: 180, ideal: 250, max: 460)
-        } detail: {
+        // Not a NavigationSplitView: that runs the sidebar up into the title bar,
+        // leaving the title and toolbar over the document alone. Laid out by
+        // hand, the title bar spans the whole window. (HSplitView would do the
+        // same, but it ignores the sidebar's ideal width.)
+        HStack(spacing: 0) {
+            if model.sidebarVisible {
+                Sidebar()
+                    .frame(width: sidebarWidth)
+                    .background(SidebarMaterial())
+                SidebarDivider(width: $sidebarWidth)
+            }
             detail
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle(model.titleOfSelection ?? "The Reading Room")
-        .navigationSubtitle(model.subtitle)
+        .navigationTitle(model.root?.lastPathComponent ?? "")
         .toolbar { toolbarContent }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
@@ -91,7 +100,20 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            Button {
+                model.sidebarVisible.toggle()
+            } label: {
+                Image(systemName: "sidebar.left")
+            }
+            // Otherwise VoiceOver reads the symbol's name, "split view horizontally left".
+            .accessibilityLabel(model.sidebarVisible ? "Hide Sidebar" : "Show Sidebar")
+            .help(model.sidebarVisible ? "Hide Sidebar (⌃⌘S)" : "Show Sidebar (⌃⌘S)")
+        }
+
         ToolbarItemGroup {
+            Spacer()
+
             ControlGroup {
                 Button {
                     model.webViewController.goBack()
@@ -109,10 +131,6 @@ struct ContentView: View {
                 .disabled(!model.webViewController.canGoForward)
                 .help("Forward (⌘])")
             }
-        }
-
-        ToolbarItemGroup {
-            Spacer()
 
             Menu {
                 OutlineMenuItems(model: model)
@@ -160,6 +178,56 @@ struct ContentView: View {
             .disabled(model.selection == nil)
             .help("Close File")
         }
+    }
+}
+
+// MARK: - Sidebar background
+
+/// The translucent sidebar material. A NavigationSplitView supplies this on its
+/// own; the plain split view the window uses instead does not.
+private struct SidebarMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
+/// The line between the sidebar and the document; drag it to resize the sidebar.
+private struct SidebarDivider: View {
+    @Binding var width: Double
+    @State private var widthAtDragStart: Double?
+
+    private static let widths = 180.0...460.0
+
+    var body: some View {
+        Divider()
+            .overlay {
+                // A grab area wider than the one-point line itself.
+                Color.clear
+                    .frame(width: 8)
+                    .contentShape(.rect)
+                    .onHover { inside in
+                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                    }
+                    .gesture(
+                        // Global coordinates, since the divider moves as it's dragged.
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                            .onChanged { drag in
+                                let start = widthAtDragStart ?? width
+                                widthAtDragStart = start
+                                width = min(
+                                    max(start + drag.translation.width, Self.widths.lowerBound),
+                                    Self.widths.upperBound
+                                )
+                            }
+                            .onEnded { _ in widthAtDragStart = nil }
+                    )
+            }
     }
 }
 

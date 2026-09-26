@@ -16,6 +16,7 @@ final class AppModel: ObservableObject {
     @Published var findText = ""
     /// Toggled to move keyboard focus into the sidebar search field.
     @Published var focusSearch = false
+    @Published var sidebarVisible = true
 
     /// Sidebar order. Shared across windows, and remembered between launches.
     @Published var sortOrder: FileTree.SortOrder = .alphabetical {
@@ -115,13 +116,6 @@ final class AppModel: ObservableObject {
         searchHitsByURL[url]?.snippet
     }
 
-    /// What to call the open file in the window title — its document title when
-    /// the filename is a generic one, otherwise the filename.
-    var titleOfSelection: String? {
-        guard let selection else { return nil }
-        return FileTree.node(for: selection, in: tree)?.label ?? selection.lastPathComponent
-    }
-
     /// A file's path relative to the opened folder, e.g. `guides/setup.md`.
     /// Falls back to the absolute path for anything outside the folder.
     func relativePath(of url: URL) -> String {
@@ -129,11 +123,6 @@ final class AppModel: ObservableObject {
         let rootPath = root.path.hasSuffix("/") ? root.path : root.path + "/"
         guard url.path.hasPrefix(rootPath) else { return url.path }
         return String(url.path.dropFirst(rootPath.count))
-    }
-
-    /// Path of the selected file relative to the root folder.
-    var relativePathOfSelection: String? {
-        selection.map { relativePath(of: $0) }
     }
 
     /// A `reading-room://` link that brings this file back up, in the folder
@@ -149,17 +138,6 @@ final class AppModel: ObservableObject {
     func copyToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    /// Window subtitle: the folder holding the selected file, rooted at the
-    /// opened folder's name.
-    var subtitle: String {
-        guard let root else { return "" }
-        guard let relative = relativePathOfSelection else { return root.lastPathComponent }
-        let directory = (relative as NSString).deletingLastPathComponent
-        return directory.isEmpty
-            ? root.lastPathComponent
-            : "\(root.lastPathComponent)/\(directory)"
     }
 
     // MARK: - Opening folders

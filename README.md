@@ -58,6 +58,7 @@ build falls back to ad-hoc and everything except notifications still works.
 | Search file *contents* | type in the sidebar field (⇧⌘F), matches shown with a preview line. Files whose *name* or title match appear too |
 | Jump to a heading | the outline button in the toolbar lists the document's headings |
 | Sort the sidebar | the control beside the search field, or View ▸ Sort Files By |
+| Hide the sidebar | ⌃⌘S, or the sidebar button in the toolbar. Drag its edge to resize it; the width is remembered |
 | Follow a markdown link | click it — it opens in place, with ⌘[ / ⌘] for back and forward |
 | Open a web link | click it — it goes to your default browser |
 | Find in the page | ⌘F, then ⌘G / ⇧⌘G |

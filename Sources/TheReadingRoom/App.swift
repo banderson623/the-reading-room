@@ -158,6 +158,12 @@ private struct ViewerCommands: Commands {
         }
 
         CommandGroup(after: .sidebar) {
+            Button(model?.sidebarVisible == false ? "Show Sidebar" : "Hide Sidebar") {
+                model?.sidebarVisible.toggle()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            .disabled(model == nil)
+
             Divider()
 
             Picker("Sort Files By", selection: sortBinding) {
